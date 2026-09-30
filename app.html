@@ -1,0 +1,1154 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>PlantaCAD — Editor</title>
+<meta name="author" content="Joaquim Pedro de Morais Filho — j360074@hotmail.com">
+<meta name="description" content="PlantaCAD: sistema profissional de criação de plantas baixas no navegador, com análise inteligente de projeto. Por Joaquim Pedro de Morais Filho.">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230a0a07'/%3E%3Crect x='6' y='6' width='20' height='20' fill='none' stroke='%23ffd400' stroke-width='3'/%3E%3Cline x1='16' y1='6' x2='16' y2='18' stroke='%23ffd400' stroke-width='3'/%3E%3Cline x1='6' y1='18' x2='16' y2='18' stroke='%23ffd400' stroke-width='3'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  /* ── PlantaCAD · terminal CAD preto/amarelo · tema único deliberado ── */
+  :root{
+    --bg:#0a0a07;         /* fundo geral */
+    --panel:#11100a;      /* painéis */
+    --panel-2:#171509;    /* botões / campos */
+    --line:#2b2712;       /* bordas */
+    --ink:#e8dfa8;        /* texto âmbar */
+    --ink-dim:#8a7d45;    /* texto secundário */
+    --acc:#ffd400;        /* amarelo CAD */
+    --acc-soft:#b99c1e;   /* amarelo apagado (desenho) */
+    --grid:#17150c;
+    --grid-strong:#221e0f;
+    --danger:#ff5d3a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg);color:var(--ink);
+    font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+    font-size:12px;overflow:hidden;
+  }
+  button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+  input,select,textarea{font:inherit;color:var(--ink)}
+
+  #app{display:grid;height:100vh;
+    grid-template-rows:44px 1fr 26px;
+    grid-template-columns:64px 1fr 232px;
+    grid-template-areas:"top top top" "tools canvas side" "status status status";}
+
+  /* ── barra superior ── */
+  #topbar{grid-area:top;display:flex;align-items:center;gap:14px;
+    background:var(--panel);border-bottom:1px solid var(--line);padding:0 12px}
+  #logo{font-family:"Chakra Petch",sans-serif;font-weight:700;font-size:17px;
+    letter-spacing:.06em;color:var(--acc);white-space:nowrap}
+  #logo small{color:var(--ink-dim);font-weight:600;font-size:10px;letter-spacing:.2em;margin-left:6px}
+  #projname{background:var(--panel-2);border:1px solid var(--line);padding:5px 8px;
+    width:200px;letter-spacing:.02em}
+  #projname:focus{outline:1px solid var(--acc)}
+  .tb{background:var(--panel-2);border:1px solid var(--line);padding:5px 10px;
+    text-transform:uppercase;letter-spacing:.12em;font-size:10px;font-weight:600}
+  .tb:hover{border-color:var(--acc);color:var(--acc)}
+  #author-top{margin-left:auto;text-align:right;line-height:1.3;color:var(--ink-dim);font-size:10px}
+  #author-top b{color:var(--ink);font-weight:500}
+
+  /* ── ferramentas (esquerda) ── */
+  #tools{grid-area:tools;background:var(--panel);border-right:1px solid var(--line);
+    display:flex;flex-direction:column;align-items:stretch;padding:6px 0;gap:2px}
+  .tool{display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 0 6px;
+    color:var(--ink-dim);border-left:2px solid transparent}
+  .tool .k{font-family:"Chakra Petch",sans-serif;font-weight:700;font-size:15px;line-height:1}
+  .tool .n{font-size:8px;letter-spacing:.14em}
+  .tool:hover{color:var(--ink)}
+  .tool.on{color:var(--acc);border-left-color:var(--acc);background:var(--panel-2)}
+
+  /* ── área do desenho ── */
+  #wrap{grid-area:canvas;position:relative;overflow:hidden;background:var(--bg)}
+  canvas{display:block;cursor:crosshair}
+  #txtin{position:absolute;display:none;background:var(--panel-2);border:1px solid var(--acc);
+    padding:3px 6px;min-width:140px;z-index:5}
+  #txtin:focus{outline:none}
+
+  /* ── painel lateral ── */
+  #side{grid-area:side;background:var(--panel);border-left:1px solid var(--line);
+    overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:14px}
+  .sec h3{font-family:"Chakra Petch",sans-serif;font-size:10px;font-weight:700;
+    letter-spacing:.22em;color:var(--acc);border-bottom:1px solid var(--line);
+    padding-bottom:5px;margin-bottom:8px;text-transform:uppercase}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+  .row label{color:var(--ink-dim);font-size:10px;letter-spacing:.05em}
+  .row select,.row input[type=text]{background:var(--panel-2);border:1px solid var(--line);
+    padding:3px 5px;width:92px;font-size:11px}
+  .row input[type=checkbox]{accent-color:var(--acc)}
+  #furn{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  #furn button{background:var(--panel-2);border:1px solid var(--line);padding:6px 4px;
+    font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-dim)}
+  #furn button:hover{color:var(--ink);border-color:var(--ink-dim)}
+  #furn button.on{color:var(--acc);border-color:var(--acc)}
+  .stack{display:flex;flex-direction:column;gap:5px}
+  .stack button{background:var(--panel-2);border:1px solid var(--line);padding:6px;
+    font-size:10px;letter-spacing:.1em;text-transform:uppercase}
+  .stack button:hover{border-color:var(--acc);color:var(--acc)}
+  #projlist{width:100%;background:var(--panel-2);border:1px solid var(--line);
+    padding:4px;font-size:11px}
+  .duo{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+  .hint{color:var(--ink-dim);font-size:9.5px;line-height:1.6}
+  .hint b{color:var(--ink);font-weight:500}
+
+  /* ── barra de status ── */
+  #status{grid-area:status;display:flex;align-items:center;gap:18px;
+    background:var(--panel);border-top:1px solid var(--line);padding:0 12px;
+    font-size:10.5px;color:var(--ink-dim);font-variant-numeric:tabular-nums}
+  #status .v{color:var(--acc)}
+  #credit{margin-left:auto;letter-spacing:.04em}
+  #credit b{color:var(--ink);font-weight:500}
+
+  /* ── modal ── */
+  #modal{position:fixed;inset:0;background:rgba(5,5,3,.82);display:none;
+    align-items:center;justify-content:center;z-index:20}
+  #modal.open{display:flex}
+  #mbox{background:var(--panel);border:1px solid var(--acc);width:min(640px,92vw);
+    max-height:88vh;overflow:auto;padding:16px}
+  #mbox h2{font-family:"Chakra Petch",sans-serif;font-size:13px;letter-spacing:.2em;
+    color:var(--acc);text-transform:uppercase;margin-bottom:10px}
+  #mbody textarea{width:100%;height:200px;background:var(--panel-2);
+    border:1px solid var(--line);padding:8px;font-size:10.5px;resize:vertical}
+  #mbody img{max-width:100%;border:1px solid var(--line);background:#fff}
+  #mbody p{margin:8px 0;color:var(--ink-dim);line-height:1.6;font-size:11px}
+  #mbody b{color:var(--ink);font-weight:500}
+  #mbody kbd{background:var(--panel-2);border:1px solid var(--line);padding:1px 5px;
+    font-size:10px;color:var(--acc)}
+  #mbody table{border-collapse:collapse;width:100%;margin:6px 0}
+  #mbody td{border:1px solid var(--line);padding:4px 8px;font-size:10.5px}
+  .mbtns{display:flex;gap:6px;margin-top:12px;justify-content:flex-end}
+  .mbtns button{background:var(--panel-2);border:1px solid var(--line);padding:6px 14px;
+    text-transform:uppercase;letter-spacing:.12em;font-size:10px}
+  .mbtns button:hover{border-color:var(--acc);color:var(--acc)}
+
+  #toast{position:fixed;left:50%;bottom:44px;transform:translateX(-50%);
+    background:var(--acc);color:#111;padding:7px 16px;font-weight:600;font-size:11px;
+    letter-spacing:.06em;display:none;z-index:30}
+
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:var(--line)}
+  ::-webkit-scrollbar-track{background:var(--panel)}
+  :focus-visible{outline:1px solid var(--acc)}
+  #mbody .ia-out{background:var(--panel-2);border:1px solid var(--line);padding:12px;
+    font-size:11.5px;line-height:1.75;white-space:pre-wrap;max-height:46vh;overflow:auto}
+  #mbody .ia-out h4{color:var(--acc);font-family:"Chakra Petch",sans-serif;
+    font-size:11px;letter-spacing:.15em;text-transform:uppercase;margin:10px 0 4px}
+  #mbody .ok{color:#8fd46a} #mbody .warn{color:var(--danger)}
+  .iabtn{position:relative}
+  .iabtn.busy::after{content:'…';position:absolute;right:8px;animation:blink 1s infinite}
+  @keyframes blink{50%{opacity:.2}}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="topbar">
+    <span id="logo">PLANTA<span style="color:var(--ink)">▮</span>CAD<small>SISTEMA DE PLANTAS · v1.0</small></span>
+    <input id="projname" type="text" value="PROJETO-01" spellcheck="false" aria-label="Nome do projeto">
+    <button class="tb" id="bNew">Novo</button>
+    <button class="tb" id="bHelp">Ajuda ?</button>
+    <div id="author-top"><b>Joaquim Pedro de Morais Filho</b><br>j360074@hotmail.com</div>
+  </div>
+
+  <div id="tools" role="toolbar" aria-label="Ferramentas"></div>
+
+  <div id="wrap">
+    <canvas id="cv"></canvas>
+    <input id="txtin" type="text" placeholder="texto do ambiente…" spellcheck="false">
+  </div>
+
+  <div id="side">
+    <div class="sec">
+      <h3>Propriedades</h3>
+      <div class="row"><label>Parede (cm)</label>
+        <select id="pWall"><option>10</option><option selected>15</option><option>20</option><option>25</option></select></div>
+      <div class="row"><label>Porta (cm)</label>
+        <select id="pDoor"><option>60</option><option>70</option><option selected>80</option><option>90</option><option>120</option></select></div>
+      <div class="row"><label>Janela (cm)</label>
+        <select id="pWin"><option>100</option><option selected>120</option><option>150</option><option>200</option></select></div>
+      <div class="row"><label>Snap (m)</label>
+        <select id="pSnap"><option>0.05</option><option selected>0.10</option><option>0.25</option><option>0.50</option></select></div>
+      <div class="row"><label>Grade</label><input type="checkbox" id="pGrid" checked></div>
+      <div class="row"><label>Medidas nas paredes</label><input type="checkbox" id="pAuto" checked></div>
+    </div>
+
+    <div class="sec">
+      <h3>Mobiliário</h3>
+      <div id="furn"></div>
+      <p class="hint" style="margin-top:6px"><b>R</b> gira a peça antes de posicionar.</p>
+    </div>
+
+    <div class="sec">
+      <h3>Inteligência</h3>
+      <div class="stack">
+        <button id="bAI" class="iabtn" style="border-color:var(--acc);color:var(--acc)">Analisar projeto · IA</button>
+        <button id="bTec">Verificação técnica</button>
+      </div>
+      <p class="hint" style="margin-top:6px">A análise por IA avalia circulação, conforto
+        e distribuição dos ambientes. A verificação técnica confere medidas mínimas
+        (portas, iluminação, ventilação) instantaneamente, sem internet.</p>
+    </div>
+
+    <div class="sec">
+      <h3>Projeto</h3>
+      <div class="stack">
+        <button id="bSave">Salvar no navegador</button>
+        <select id="projlist" aria-label="Projetos salvos"></select>
+        <div class="duo">
+          <button id="bLoad">Carregar</button>
+          <button id="bDel" style="color:var(--danger)">Excluir</button>
+        </div>
+        <div class="duo">
+          <button id="bExp">Exportar JSON</button>
+          <button id="bImp">Importar JSON</button>
+        </div>
+        <button id="bPng">Exportar planta (PNG)</button>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h3>Atalhos</h3>
+      <p class="hint">
+        <b>1–9</b> ferramentas · <b>Esc</b> cancela<br>
+        <b>Del</b> apaga seleção · <b>Ctrl+Z</b> desfaz<br>
+        <b>Shift</b> ângulo livre · <b>R</b> gira móvel<br>
+        Roda = zoom · botão direito = mover tela
+      </p>
+    </div>
+  </div>
+
+  <div id="status">
+    <span>X <span class="v" id="sx">0,00</span> m</span>
+    <span>Y <span class="v" id="sy">0,00</span> m</span>
+    <span>ZOOM <span class="v" id="sz">100%</span></span>
+    <span id="shint">—</span>
+    <span id="credit">criador: <b>Joaquim Pedro de Morais Filho</b> · j360074@hotmail.com · 2026</span>
+  </div>
+</div>
+
+<div id="modal" role="dialog" aria-modal="true">
+  <div id="mbox">
+    <h2 id="mtitle"></h2>
+    <div id="mbody"></div>
+    <div class="mbtns" id="mbtns"></div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* ============================================================
+   PlantaCAD — editor de plantas baixas
+   criador: Joaquim Pedro de Morais Filho · j360074@hotmail.com
+   ============================================================ */
+
+const $ = id => document.getElementById(id);
+const cv = $('cv'), wrap = $('wrap');
+const ctx = cv.getContext('2d');
+
+/* ---------- modelo ---------- */
+let model = blank();
+function blank(){ return { walls:[], opens:[], dims:[], texts:[], furn:[] }; }
+
+/* ---------- vista (mundo em metros) ---------- */
+const view = { x:-2, y:-2, s:60 };            // s = pixels por metro
+let mouse = { x:0, y:0, wx:0, wy:0, snapx:0, snapy:0, in:false };
+let shiftK = false;
+
+/* ---------- ferramentas ---------- */
+const TOOLS = [
+  ['sel','SEL','Selecionar / mover  (1)'],
+  ['wall','PAR','Parede  (2)'],
+  ['door','POR','Porta  (3)'],
+  ['win','JAN','Janela  (4)'],
+  ['dim','COT','Cota / medida  (5)'],
+  ['text','TXT','Texto / ambiente  (6)'],
+  ['furn','MOB','Mobiliário  (7)'],
+  ['erase','APG','Apagar  (8)'],
+  ['pan','PAN','Mover tela  (9)'],
+];
+let tool = 'wall';
+let wallStart = null;       // {x,y} durante desenho de parede
+let dimStart  = null;
+let furnType  = 'sofa';
+let furnRot   = 0;
+let sel = null;             // {kind, i}
+let drag = null;            // arrasto de seleção
+let panning = null;
+
+const HINTS = {
+  sel:'clique para selecionar · arraste para mover · Del apaga',
+  wall:'clique para iniciar a parede · clique para cada canto · Esc encerra',
+  door:'clique sobre uma parede para inserir a porta (lado do cursor = lado da abertura)',
+  win:'clique sobre uma parede para inserir a janela',
+  dim:'clique nos dois pontos da medida',
+  text:'clique onde deseja escrever (nome do ambiente, área…)',
+  furn:'escolha a peça no painel · R gira · clique para posicionar',
+  erase:'clique no elemento para apagar',
+  pan:'arraste para mover a área de desenho',
+};
+
+/* ---------- mobiliário: nome + desenho em metros (centrado na origem) ---------- */
+const FURN = {
+  sofa:      ['Sofá',        1.05, 1.0],
+  cama:      ['Cama casal',  0.75, 1.0],
+  solteiro:  ['Cama solt.',  0.5,  1.0],
+  mesa:      ['Mesa 4 lug.', 0.95, 0.95],
+  vaso:      ['Vaso sanit.', 0.35, 0.45],
+  lavatorio: ['Lavatório',   0.3,  0.3],
+  pia:       ['Pia cozinha', 0.65, 0.35],
+  fogao:     ['Fogão',       0.35, 0.35],
+  gelad:     ['Geladeira',   0.4,  0.4],
+  chuveiro:  ['Chuveiro',    0.5,  0.5],
+};
+function drawFurn(c, type, s){ // desenha no referencial local, s = px/m
+  c.lineWidth = Math.max(1, .022*s);
+  const L=(x1,y1,x2,y2)=>{c.beginPath();c.moveTo(x1*s,y1*s);c.lineTo(x2*s,y2*s);c.stroke();};
+  const R=(x,y,w,h)=>{c.strokeRect((x-w/2)*s,(y-h/2)*s,w*s,h*s);};
+  const C=(x,y,r)=>{c.beginPath();c.arc(x*s,y*s,r*s,0,7);c.stroke();};
+  switch(type){
+    case 'sofa': R(0,0,2.0,.9); L(-1,-.25,1,-.25); L(-.78,-.25,-.78,.45); L(.78,-.25,.78,.45); break;
+    case 'cama': R(0,0,1.4,1.9); L(-.7,-.55,.7,-.55); R(-.34,-.75,.55,.3); R(.34,-.75,.55,.3); break;
+    case 'solteiro': R(0,0,.9,1.9); L(-.45,-.55,.45,-.55); R(0,-.75,.6,.3); break;
+    case 'mesa': R(0,0,1.2,.8); R(0,-.62,.42,.4); R(0,.62,.42,.4); R(-.82,0,.4,.42); R(.82,0,.4,.42); break;
+    case 'vaso': R(0,-.28,.5,.2); c.beginPath();
+                 c.ellipse(0,.1*s,.19*s,.26*s,0,0,7); c.stroke(); break;
+    case 'lavatorio': R(0,0,.55,.45); C(0,0,.16); break;
+    case 'pia': R(0,0,1.2,.55); C(-.3,0,.17); C(.25,-.02,.03); break;
+    case 'fogao': R(0,0,.6,.6); C(-.15,-.15,.09); C(.15,-.15,.09); C(-.15,.15,.09); C(.15,.15,.09); break;
+    case 'gelad': R(0,0,.7,.75); L(-.35,-.15,.35,-.15); break;
+    case 'chuveiro': R(0,0,.9,.9); L(-.45,-.45,.45,.45); L(.45,-.45,-.45,.45); C(0,0,.05); break;
+  }
+}
+
+/* ---------- utilidades ---------- */
+const fmt = n => n.toFixed(2).replace('.', ',');
+function snapStep(){ return parseFloat($('pSnap').value); }
+function snap(v){ const st = snapStep(); return Math.round(v/st)*st; }
+function w2s(wx,wy){ return [(wx-view.x)*view.s, (wy-view.y)*view.s]; }
+function s2w(px,py){ return [px/view.s+view.x, py/view.s+view.y]; }
+function dist(ax,ay,bx,by){ return Math.hypot(bx-ax, by-ay); }
+function ptSeg(px,py, x1,y1,x2,y2){ // distância ponto-segmento + t
+  const dx=x2-x1, dy=y2-y1, L2=dx*dx+dy*dy;
+  let t = L2 ? ((px-x1)*dx+(py-y1)*dy)/L2 : 0;
+  t = Math.max(0, Math.min(1, t));
+  const qx=x1+t*dx, qy=y1+t*dy;
+  return { d: Math.hypot(px-qx, py-qy), t, qx, qy };
+}
+
+/* ---------- desfazer ---------- */
+const undoStack = [];
+function pushUndo(){
+  undoStack.push(JSON.stringify(model));
+  if (undoStack.length > 60) undoStack.shift();
+}
+function undo(){
+  const s = undoStack.pop();
+  if (s){ model = JSON.parse(s); sel = null; draw(); toast('Desfeito'); }
+}
+
+/* ---------- render ---------- */
+const PAL_SCREEN = {
+  bg:getCss('--bg'), grid:getCss('--grid'), gridS:getCss('--grid-strong'),
+  wallEdge:getCss('--acc-soft'), wallFill:'#1c1a0e', ink:getCss('--ink'),
+  dim:getCss('--ink-dim'), acc:getCss('--acc'), sel:getCss('--acc'),
+};
+const PAL_PRINT = {
+  bg:'#ffffff', grid:'#f0ede2', gridS:'#e2ddc8',
+  wallEdge:'#111111', wallFill:'#3a3a3a', ink:'#111111',
+  dim:'#555555', acc:'#8a6d00', sel:'#111111',
+};
+function getCss(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+
+function resize(){
+  const dpr = window.devicePixelRatio || 1;
+  cv.width  = wrap.clientWidth * dpr;
+  cv.height = wrap.clientHeight * dpr;
+  cv.style.width  = wrap.clientWidth + 'px';
+  cv.style.height = wrap.clientHeight + 'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  draw();
+}
+window.addEventListener('resize', resize);
+
+function draw(){
+  renderScene(ctx, view, wrap.clientWidth, wrap.clientHeight, PAL_SCREEN, true);
+}
+
+function renderScene(c, v, W, H, pal, live){
+  c.fillStyle = pal.bg; c.fillRect(0,0,W,H);
+  const S = v.s;
+  const toS = (wx,wy)=>[(wx-v.x)*S,(wy-v.y)*S];
+
+  /* grade */
+  if (!live || $('pGrid').checked){
+    const x0 = v.x, y0 = v.y, x1 = v.x + W/S, y1 = v.y + H/S;
+    const steps = [[0.5, pal.grid],[1, pal.gridS]];
+    for (const [st, col] of steps){
+      if (st*S < 6) continue;
+      c.strokeStyle = col; c.lineWidth = 1; c.beginPath();
+      for (let gx = Math.floor(x0/st)*st; gx <= x1; gx += st){
+        const [px] = toS(gx,0); c.moveTo(px, 0); c.lineTo(px, H);
+      }
+      for (let gy = Math.floor(y0/st)*st; gy <= y1; gy += st){
+        const [,py] = toS(0,gy); c.moveTo(0, py); c.lineTo(W, py);
+      }
+      c.stroke();
+    }
+    /* origem */
+    c.strokeStyle = pal.dim; c.lineWidth = 1; c.beginPath();
+    const [ox,oy] = toS(0,0);
+    c.moveTo(ox-14,oy); c.lineTo(ox+14,oy); c.moveTo(ox,oy-14); c.lineTo(ox,oy+14);
+    c.stroke();
+  }
+
+  /* paredes */
+  for (let i=0;i<model.walls.length;i++){
+    const w = model.walls[i];
+    const [ax,ay]=toS(w.x1,w.y1), [bx,by]=toS(w.x2,w.y2);
+    const selMe = live && sel && sel.kind==='wall' && sel.i===i;
+    c.lineCap='square';
+    c.strokeStyle = selMe ? pal.sel : pal.wallEdge;
+    c.lineWidth = w.t*S;
+    c.beginPath(); c.moveTo(ax,ay); c.lineTo(bx,by); c.stroke();
+    c.strokeStyle = pal.wallFill;
+    c.lineWidth = Math.max(1,(w.t-0.045)*S);
+    c.beginPath(); c.moveTo(ax,ay); c.lineTo(bx,by); c.stroke();
+    if ((!live || $('pAuto').checked)){
+      const len = dist(w.x1,w.y1,w.x2,w.y2);
+      if (len > 0.3) wallLabel(c, ax,ay,bx,by, fmt(len)+' m', pal, S, selMe);
+    }
+  }
+
+  /* aberturas (portas e janelas) */
+  for (let i=0;i<model.opens.length;i++){
+    const o = model.opens[i];
+    const selMe = live && sel && sel.kind==='open' && sel.i===i;
+    const [px,py] = toS(o.x,o.y);
+    c.save(); c.translate(px,py); c.rotate(o.a);
+    /* vão: apaga a parede */
+    c.fillStyle = pal.bg;
+    c.fillRect(-o.w/2*S, -(o.t/2+0.012)*S, o.w*S, (o.t+0.024)*S);
+    c.strokeStyle = selMe ? pal.sel : pal.ink;
+    c.lineWidth = Math.max(1,.02*S);
+    /* ombreiras */
+    c.beginPath();
+    c.moveTo(-o.w/2*S, -o.t/2*S); c.lineTo(-o.w/2*S, o.t/2*S);
+    c.moveTo( o.w/2*S, -o.t/2*S); c.lineTo( o.w/2*S, o.t/2*S);
+    c.stroke();
+    if (o.type==='door'){
+      const hx=-o.w/2*S, hy=0, r=o.w*S, sd=o.side;
+      c.beginPath(); c.moveTo(hx,hy); c.lineTo(hx, sd*r); c.stroke();     /* folha */
+      c.beginPath(); c.arc(hx,hy,r, 0, sd*Math.PI/2, sd<0); c.stroke();    /* giro */
+    } else {
+      c.beginPath();
+      for (const yy of [-o.t/2, 0, o.t/2]){
+        c.moveTo(-o.w/2*S, yy*S); c.lineTo(o.w/2*S, yy*S);
+      }
+      c.stroke();
+    }
+    c.restore();
+  }
+
+  /* cotas */
+  for (let i=0;i<model.dims.length;i++){
+    const d = model.dims[i];
+    const selMe = live && sel && sel.kind==='dim' && sel.i===i;
+    drawDim(c, toS(d.x1,d.y1), toS(d.x2,d.y2),
+      fmt(dist(d.x1,d.y1,d.x2,d.y2))+' m', selMe?pal.sel:pal.dim, pal, S);
+  }
+
+  /* textos */
+  c.textAlign='center'; c.textBaseline='middle';
+  for (let i=0;i<model.texts.length;i++){
+    const t = model.texts[i];
+    const selMe = live && sel && sel.kind==='text' && sel.i===i;
+    const [px,py]=toS(t.x,t.y);
+    c.fillStyle = selMe ? pal.sel : pal.ink;
+    c.font = `600 ${Math.max(9,.24*S)}px "Chakra Petch",sans-serif`;
+    c.fillText(t.s.toUpperCase(), px, py);
+  }
+
+  /* mobiliário */
+  for (let i=0;i<model.furn.length;i++){
+    const f = model.furn[i];
+    const selMe = live && sel && sel.kind==='furn' && sel.i===i;
+    const [px,py]=toS(f.x,f.y);
+    c.save(); c.translate(px,py); c.rotate(f.a);
+    c.strokeStyle = selMe ? pal.sel : pal.dim;
+    drawFurn(c, f.type, S);
+    c.restore();
+  }
+
+  /* pré-visualizações */
+  if (live) preview(c, S, toS, pal);
+}
+
+function wallLabel(c, ax,ay,bx,by, txt, pal, S, hot){
+  const mx=(ax+bx)/2, my=(ay+by)/2;
+  let ang = Math.atan2(by-ay, bx-ax);
+  if (ang > Math.PI/2 || ang < -Math.PI/2) ang += Math.PI;
+  c.save(); c.translate(mx,my); c.rotate(ang);
+  c.font = `500 ${Math.max(9,.17*S)}px "IBM Plex Mono",monospace`;
+  c.textAlign='center'; c.textBaseline='bottom';
+  c.fillStyle = hot ? pal.sel : pal.dim;
+  c.fillText(txt, 0, -.14*S);
+  c.restore();
+}
+
+function drawDim(c, A, B, txt, col, pal, S){
+  const [ax,ay]=A, [bx,by]=B;
+  c.strokeStyle = col; c.lineWidth = 1;
+  c.beginPath(); c.moveTo(ax,ay); c.lineTo(bx,by); c.stroke();
+  const ang = Math.atan2(by-ay,bx-ax), tk = Math.max(4,.09*S);
+  for (const [px,py] of [A,B]){
+    c.save(); c.translate(px,py); c.rotate(ang+Math.PI/4);
+    c.beginPath(); c.moveTo(-tk,0); c.lineTo(tk,0); c.stroke(); c.restore();
+  }
+  const mx=(ax+bx)/2, my=(ay+by)/2;
+  let ta = ang; if (ta>Math.PI/2||ta<-Math.PI/2) ta+=Math.PI;
+  c.save(); c.translate(mx,my); c.rotate(ta);
+  c.font = `500 ${Math.max(9,.16*S)}px "IBM Plex Mono",monospace`;
+  const wt = c.measureText(txt).width;
+  c.fillStyle = pal.bg; c.fillRect(-wt/2-3, -.1*S-9, wt+6, 14);
+  c.fillStyle = col; c.textAlign='center'; c.textBaseline='bottom';
+  c.fillText(txt, 0, -.04*S);
+  c.restore();
+}
+
+/* ---------- pré-visualização da ferramenta ---------- */
+function orthoSnap(x1,y1, x2,y2){
+  if (shiftK) return [x2,y2];
+  const dx=x2-x1, dy=y2-y1, ang=Math.atan2(dy,dx), L=Math.hypot(dx,dy);
+  const q = Math.round(ang/(Math.PI/4))*(Math.PI/4);
+  if (Math.abs(ang-q) < 0.18)
+    return [snap(x1+L*Math.cos(q)), snap(y1+L*Math.sin(q))];
+  return [x2,y2];
+}
+function preview(c, S, toS, pal){
+  if (!mouse.in) return;
+  if (tool==='wall' && wallStart){
+    let [ex,ey] = orthoSnap(wallStart.x, wallStart.y, mouse.snapx, mouse.snapy);
+    const [ax,ay]=toS(wallStart.x,wallStart.y), [bx,by]=toS(ex,ey);
+    const t = parseFloat($('pWall').value)/100;
+    c.lineCap='square';
+    c.globalAlpha=.6;
+    c.strokeStyle=pal.acc; c.lineWidth=t*S;
+    c.beginPath(); c.moveTo(ax,ay); c.lineTo(bx,by); c.stroke();
+    c.globalAlpha=1;
+    wallLabel(c, ax,ay,bx,by, fmt(dist(wallStart.x,wallStart.y,ex,ey))+' m', pal, S, true);
+  }
+  if (tool==='dim' && dimStart){
+    drawDim(c, toS(dimStart.x,dimStart.y), toS(mouse.snapx,mouse.snapy),
+      fmt(dist(dimStart.x,dimStart.y,mouse.snapx,mouse.snapy))+' m', pal.acc, pal, S);
+  }
+  if (tool==='door' || tool==='win'){
+    const hit = nearestWall(mouse.wx, mouse.wy, .5);
+    if (hit){
+      const g = ghostOpening(hit);
+      const [px,py]=toS(g.x,g.y);
+      c.save(); c.translate(px,py); c.rotate(g.a); c.globalAlpha=.65;
+      c.strokeStyle=pal.acc; c.lineWidth=Math.max(1,.02*S);
+      c.strokeRect(-g.w/2*S, -g.t/2*S, g.w*S, g.t*S);
+      if (g.type==='door'){
+        c.beginPath(); c.arc(-g.w/2*S,0,g.w*S,0,g.side*Math.PI/2,g.side<0); c.stroke();
+      }
+      c.restore(); c.globalAlpha=1;
+    }
+  }
+  if (tool==='furn'){
+    const [px,py]=toS(mouse.snapx,mouse.snapy);
+    c.save(); c.translate(px,py); c.rotate(furnRot);
+    c.globalAlpha=.65; c.strokeStyle=pal.acc;
+    drawFurn(c, furnType, S);
+    c.restore(); c.globalAlpha=1;
+  }
+  /* mira */
+  if (tool!=='sel' && tool!=='pan' && tool!=='erase'){
+    const [px,py]=toS(mouse.snapx,mouse.snapy);
+    c.strokeStyle=pal.acc; c.lineWidth=1; c.beginPath();
+    c.moveTo(px-7,py); c.lineTo(px+7,py); c.moveTo(px,py-7); c.lineTo(px,py+7);
+    c.stroke();
+  }
+}
+
+/* ---------- inserção de aberturas ---------- */
+function nearestWall(wx,wy, maxD){
+  let best=null;
+  for (let i=0;i<model.walls.length;i++){
+    const w=model.walls[i];
+    const r=ptSeg(wx,wy, w.x1,w.y1,w.x2,w.y2);
+    if (r.d<maxD && (!best || r.d<best.d)) best={...r, i, w};
+  }
+  return best;
+}
+function ghostOpening(hit){
+  const w=hit.w;
+  const wid = (tool==='door'?parseFloat($('pDoor').value):parseFloat($('pWin').value))/100;
+  const ang = Math.atan2(w.y2-w.y1, w.x2-w.x1);
+  const L = dist(w.x1,w.y1,w.x2,w.y2);
+  let t = hit.t;
+  const tmin = (wid/2+0.05)/L, tmax = 1-(wid/2+0.05)/L;
+  t = Math.max(tmin, Math.min(tmax, t));
+  const x = w.x1+(w.x2-w.x1)*t, y = w.y1+(w.y2-w.y1)*t;
+  /* lado da abertura = lado do cursor em relação à parede */
+  const cross = (w.x2-w.x1)*(mouse.wy-w.y1)-(w.y2-w.y1)*(mouse.wx-w.x1);
+  return { type: tool==='door'?'door':'win', x, y, a:ang, w:wid, t:w.t,
+           side: cross>=0?1:-1 };
+}
+
+/* ---------- interação ---------- */
+cv.addEventListener('contextmenu', e=>e.preventDefault());
+cv.addEventListener('mousedown', e=>{
+  const r=cv.getBoundingClientRect();
+  const mx=e.clientX-r.left, my=e.clientY-r.top;
+  if (e.button===2 || e.button===1 || tool==='pan'){
+    panning={mx,my,vx:view.x,vy:view.y}; return;
+  }
+  if (e.button!==0) return;
+  const [wx,wy]=s2w(mx,my);
+  const sx=snap(wx), sy=snap(wy);
+
+  if (tool==='wall'){
+    if (!wallStart){ wallStart={x:sx,y:sy}; }
+    else {
+      const [ex,ey]=orthoSnap(wallStart.x,wallStart.y,sx,sy);
+      if (dist(wallStart.x,wallStart.y,ex,ey)>0.05){
+        pushUndo();
+        model.walls.push({x1:wallStart.x,y1:wallStart.y,x2:ex,y2:ey,
+          t:parseFloat($('pWall').value)/100});
+        wallStart={x:ex,y:ey};
+      }
+    }
+  }
+  else if (tool==='door'||tool==='win'){
+    const hit=nearestWall(wx,wy,.5);
+    if (hit){ pushUndo(); model.opens.push(ghostOpening(hit)); }
+    else toast('Clique sobre uma parede');
+  }
+  else if (tool==='dim'){
+    if (!dimStart) dimStart={x:sx,y:sy};
+    else {
+      pushUndo();
+      model.dims.push({x1:dimStart.x,y1:dimStart.y,x2:sx,y2:sy});
+      dimStart=null;
+    }
+  }
+  else if (tool==='text'){ openTextInput(mx,my,sx,sy); }
+  else if (tool==='furn'){
+    pushUndo();
+    model.furn.push({type:furnType,x:sx,y:sy,a:furnRot});
+  }
+  else if (tool==='erase'){
+    const h=hitTest(wx,wy);
+    if (h){ pushUndo(); removeEnt(h); sel=null; }
+  }
+  else if (tool==='sel'){
+    sel=hitTest(wx,wy);
+    if (sel){
+      drag={wx,wy, snap0:{x:sx,y:sy}, orig:JSON.stringify(entOf(sel)), moved:false};
+    }
+  }
+  draw();
+});
+
+cv.addEventListener('mousemove', e=>{
+  const r=cv.getBoundingClientRect();
+  mouse.x=e.clientX-r.left; mouse.y=e.clientY-r.top; mouse.in=true;
+  if (panning){
+    view.x=panning.vx-(mouse.x-panning.mx)/view.s;
+    view.y=panning.vy-(mouse.y-panning.my)/view.s;
+  }
+  [mouse.wx,mouse.wy]=s2w(mouse.x,mouse.y);
+  mouse.snapx=snap(mouse.wx); mouse.snapy=snap(mouse.wy);
+  $('sx').textContent=fmt(mouse.snapx);
+  $('sy').textContent=fmt(mouse.snapy);
+
+  if (drag && sel){
+    const dx=snap(mouse.wx)-drag.snap0.x, dy=snap(mouse.wy)-drag.snap0.y;
+    if (dx||dy){
+      if (!drag.moved){ pushUndo(); drag.moved=true; }
+      const o=JSON.parse(drag.orig), ent=entOf(sel);
+      if (sel.kind==='wall'){ ent.x1=o.x1+dx; ent.y1=o.y1+dy; ent.x2=o.x2+dx; ent.y2=o.y2+dy; }
+      else if (sel.kind==='dim'){ ent.x1=o.x1+dx; ent.y1=o.y1+dy; ent.x2=o.x2+dx; ent.y2=o.y2+dy; }
+      else { ent.x=o.x+dx; ent.y=o.y+dy; }
+    }
+  }
+  draw();
+});
+cv.addEventListener('mouseup', ()=>{ panning=null; drag=null; });
+cv.addEventListener('mouseleave', ()=>{ mouse.in=false; panning=null; drag=null; draw(); });
+
+cv.addEventListener('wheel', e=>{
+  e.preventDefault();
+  const r=cv.getBoundingClientRect();
+  const mx=e.clientX-r.left, my=e.clientY-r.top;
+  const [wx,wy]=s2w(mx,my);
+  const f=e.deltaY<0?1.12:1/1.12;
+  view.s=Math.max(8,Math.min(400,view.s*f));
+  view.x=wx-mx/view.s; view.y=wy-my/view.s;
+  $('sz').textContent=Math.round(view.s/60*100)+'%';
+  draw();
+},{passive:false});
+
+/* ---------- seleção ---------- */
+function hitTest(wx,wy){
+  const th=10/view.s;
+  for (let i=model.furn.length-1;i>=0;i--)
+    if (dist(wx,wy,model.furn[i].x,model.furn[i].y)<Math.max(.5,th)) return {kind:'furn',i};
+  for (let i=model.texts.length-1;i>=0;i--)
+    if (dist(wx,wy,model.texts[i].x,model.texts[i].y)<Math.max(.4,th)) return {kind:'text',i};
+  for (let i=model.opens.length-1;i>=0;i--)
+    if (dist(wx,wy,model.opens[i].x,model.opens[i].y)<Math.max(.4,th)) return {kind:'open',i};
+  for (let i=model.dims.length-1;i>=0;i--){
+    const d=model.dims[i];
+    if (ptSeg(wx,wy,d.x1,d.y1,d.x2,d.y2).d<th) return {kind:'dim',i};
+  }
+  for (let i=model.walls.length-1;i>=0;i--){
+    const w=model.walls[i];
+    if (ptSeg(wx,wy,w.x1,w.y1,w.x2,w.y2).d<Math.max(w.t,th)) return {kind:'wall',i};
+  }
+  return null;
+}
+function listOf(kind){
+  return {wall:model.walls, open:model.opens, dim:model.dims,
+          text:model.texts, furn:model.furn}[kind];
+}
+function entOf(s){ return listOf(s.kind)[s.i]; }
+function removeEnt(s){ listOf(s.kind).splice(s.i,1); }
+
+/* ---------- entrada de texto ---------- */
+const txtin=$('txtin');
+let txtPos=null;
+function openTextInput(mx,my,wx,wy){
+  txtPos={x:wx,y:wy};
+  txtin.style.left=mx+'px'; txtin.style.top=my+'px';
+  txtin.style.display='block'; txtin.value=''; txtin.focus();
+}
+txtin.addEventListener('keydown', e=>{
+  if (e.key==='Enter'){
+    const s=txtin.value.trim();
+    if (s){ pushUndo(); model.texts.push({x:txtPos.x,y:txtPos.y,s}); }
+    txtin.style.display='none'; draw();
+  }
+  if (e.key==='Escape'){ txtin.style.display='none'; }
+  e.stopPropagation();
+});
+txtin.addEventListener('blur', ()=>{ txtin.style.display='none'; });
+
+/* ---------- teclado ---------- */
+window.addEventListener('keydown', e=>{
+  if (e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT') {
+    if (e.key==='Escape') e.target.blur();
+    return;
+  }
+  shiftK=e.shiftKey;
+  if (e.key==='Escape'){ wallStart=null; dimStart=null; sel=null; closeModal(); draw(); }
+  else if (e.key==='Delete'||e.key==='Backspace'){
+    if (sel){ pushUndo(); removeEnt(sel); sel=null; draw(); }
+  }
+  else if ((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){ e.preventDefault(); undo(); }
+  else if (e.key.toLowerCase()==='r' && tool==='furn'){ furnRot=(furnRot+Math.PI/2)%(Math.PI*2); draw(); }
+  else if (e.key>='1'&&e.key<='9'){ setTool(TOOLS[+e.key-1][0]); }
+});
+window.addEventListener('keyup', e=>{ shiftK=e.shiftKey; draw(); });
+
+/* ---------- barra de ferramentas ---------- */
+const toolsEl=$('tools');
+for (const [id,k,name] of TOOLS){
+  const b=document.createElement('button');
+  b.className='tool'; b.id='t-'+id; b.title=name;
+  b.innerHTML=`<span class="k">${k[0]}</span><span class="n">${k}</span>`;
+  b.addEventListener('click',()=>setTool(id));
+  toolsEl.appendChild(b);
+}
+function setTool(t){
+  tool=t; wallStart=null; dimStart=null; sel=null;
+  document.querySelectorAll('.tool').forEach(b=>b.classList.toggle('on', b.id==='t-'+t));
+  $('shint').textContent=HINTS[t]||'—';
+  cv.style.cursor = t==='pan' ? 'grab' : 'crosshair';
+  draw();
+}
+
+/* ---------- catálogo de mobiliário ---------- */
+const furnEl=$('furn');
+for (const key in FURN){
+  const b=document.createElement('button');
+  b.textContent=FURN[key][0]; b.id='f-'+key;
+  b.addEventListener('click',()=>{
+    furnType=key; setTool('furn');
+    document.querySelectorAll('#furn button').forEach(x=>x.classList.toggle('on', x.id==='f-'+key));
+  });
+  furnEl.appendChild(b);
+}
+document.querySelector('#f-sofa').classList.add('on');
+
+/* ---------- salvamento de arquivo (visualizador ou local) ---------- */
+let dls=null;
+if (window.claude && window.claude.use)
+  window.claude.use('downloads').then(d=>{ dls=d; }).catch(()=>{});
+async function saveFile(filename, data){
+  if (dls){
+    try{ await dls.save({filename, data}); toast('Arquivo salvo'); }
+    catch(err){
+      if (err && err.code==='declined') return;
+      if (err && err.code==='rate_limited') toast('Aguarde e tente novamente');
+      else toast('Não foi possível salvar aqui — use Copiar / botão direito');
+    }
+    return;
+  }
+  const a=document.createElement('a');
+  a.href = data instanceof Blob ? URL.createObjectURL(data)
+         : 'data:text/plain;charset=utf-8,'+encodeURIComponent(data);
+  a.download=filename; a.click();
+}
+
+/* ---------- persistência ---------- */
+const LSKEY='plantacad.projects';
+function store(){
+  try { return JSON.parse(localStorage.getItem(LSKEY)||'{}'); }
+  catch(e){ return {}; }
+}
+function refreshList(){
+  const s=store(), el=$('projlist');
+  el.innerHTML='';
+  const names=Object.keys(s).sort();
+  if (!names.length){
+    const o=document.createElement('option');
+    o.textContent='— nenhum projeto salvo —'; o.disabled=true; el.appendChild(o);
+    return;
+  }
+  for (const n of names){
+    const o=document.createElement('option');
+    o.value=n; o.textContent=n; el.appendChild(o);
+  }
+}
+$('bSave').addEventListener('click',()=>{
+  const name=$('projname').value.trim()||'PROJETO-01';
+  try{
+    const s=store();
+    s[name]={ data:model, ts:Date.now() };
+    localStorage.setItem(LSKEY, JSON.stringify(s));
+    refreshList(); $('projlist').value=name;
+    toast('Projeto “'+name+'” salvo');
+  }catch(e){ toast('Não foi possível salvar neste navegador'); }
+});
+$('bLoad').addEventListener('click',()=>{
+  const s=store(), n=$('projlist').value;
+  if (s[n]){ pushUndo(); model={...blank(),...s[n].data}; $('projname').value=n;
+    sel=null; draw(); toast('Projeto “'+n+'” carregado'); }
+});
+$('bDel').addEventListener('click',()=>{
+  const s=store(), n=$('projlist').value;
+  if (s[n]){ delete s[n];
+    try{ localStorage.setItem(LSKEY,JSON.stringify(s)); }catch(e){}
+    refreshList(); toast('Projeto “'+n+'” excluído'); }
+});
+$('bNew').addEventListener('click',()=>{
+  pushUndo(); model=blank(); sel=null; wallStart=null; dimStart=null;
+  draw(); toast('Novo projeto — Ctrl+Z recupera o anterior');
+});
+
+/* ---------- exportar / importar JSON ---------- */
+$('bExp').addEventListener('click',()=>{
+  const payload=JSON.stringify({
+    app:'PlantaCAD', versao:'1.0',
+    criador:'Joaquim Pedro de Morais Filho <j360074@hotmail.com>',
+    projeto:$('projname').value, data:new Date().toISOString(), modelo:model
+  }, null, 1);
+  openModal('Exportar JSON',
+    `<p>Copie o conteúdo abaixo e guarde num arquivo <b>.json</b>. Ele contém a planta completa.</p>
+     <textarea id="mjson" readonly></textarea>`,
+    [['Baixar .json', ()=>saveFile(($('projname').value||'planta')+'.json', $('mjson').value)],
+     ['Copiar', ()=>{ const t=$('mjson'); t.select();
+        try{ navigator.clipboard.writeText(t.value); }catch(e){ document.execCommand('copy'); }
+        toast('JSON copiado'); }],
+     ['Fechar', closeModal]]);
+  $('mjson').value=payload; $('mjson').select();
+});
+$('bImp').addEventListener('click',()=>{
+  openModal('Importar JSON',
+    `<p>Cole abaixo o JSON exportado pelo PlantaCAD.</p>
+     <textarea id="mjson" placeholder='{"app":"PlantaCAD", …}'></textarea>`,
+    [['Importar', ()=>{
+        try{
+          const j=JSON.parse($('mjson').value);
+          const m=j.modelo||j;
+          if (!m.walls) throw 0;
+          pushUndo(); model={...blank(),...m};
+          if (j.projeto) $('projname').value=j.projeto;
+          sel=null; closeModal(); draw(); toast('Planta importada');
+        }catch(e){ toast('JSON inválido'); }
+      }],
+     ['Cancelar', closeModal]]);
+});
+
+/* ---------- exportar PNG (estilo impressão) ---------- */
+$('bPng').addEventListener('click',()=>{
+  const all=[...model.walls.flatMap(w=>[[w.x1,w.y1],[w.x2,w.y2]]),
+             ...model.opens.map(o=>[o.x,o.y]),
+             ...model.dims.flatMap(d=>[[d.x1,d.y1],[d.x2,d.y2]]),
+             ...model.texts.map(t=>[t.x,t.y]),
+             ...model.furn.map(f=>[f.x,f.y])];
+  if (!all.length){ toast('A planta está vazia'); return; }
+  let minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9;
+  for (const [x,y] of all){ minx=Math.min(minx,x);miny=Math.min(miny,y);
+                            maxx=Math.max(maxx,x);maxy=Math.max(maxy,y); }
+  const M=1.2, W=maxx-minx+2*M, H=maxy-miny+2*M;
+  const PXW=1800, S=PXW/W, PXH=Math.ceil(H*S)+70;
+  const oc=document.createElement('canvas'); oc.width=PXW; oc.height=PXH;
+  const c=oc.getContext('2d');
+  renderScene(c, {x:minx-M, y:miny-M, s:S}, PXW, PXH-70, PAL_PRINT, false);
+  /* carimbo */
+  c.fillStyle='#111'; c.fillRect(0,PXH-70,PXW,70);
+  c.fillStyle='#ffd400'; c.font='700 22px "Chakra Petch",sans-serif';
+  c.textAlign='left'; c.textBaseline='middle';
+  c.fillText('PLANTA▮CAD — '+($('projname').value||'PROJETO'), 24, PXH-35);
+  c.fillStyle='#e8dfa8'; c.font='500 15px "IBM Plex Mono",monospace';
+  c.textAlign='right';
+  c.fillText('Joaquim Pedro de Morais Filho · j360074@hotmail.com · '+
+    new Date().toLocaleDateString('pt-BR'), PXW-24, PXH-35);
+  const url=oc.toDataURL('image/png');
+  openModal('Exportar planta (PNG)',
+    `<p>Planta em estilo de impressão, com carimbo de autoria. Use
+      <b>Baixar PNG</b> ou o botão direito → Salvar imagem como…</p>
+     <img src="${url}" alt="Planta exportada">`,
+    [['Baixar PNG', ()=>{ oc.toBlob(b=>{
+        if (b) saveFile(($('projname').value||'planta')+'.png', b); },'image/png'); }],
+     ['Fechar', closeModal]]);
+});
+
+/* ---------- modal / toast / ajuda ---------- */
+function openModal(title, html, btns){
+  $('mtitle').textContent=title;
+  $('mbody').innerHTML=html;
+  const bb=$('mbtns'); bb.innerHTML='';
+  for (const [label,fn] of btns){
+    const b=document.createElement('button');
+    b.textContent=label; b.addEventListener('click',fn); bb.appendChild(b);
+  }
+  $('modal').classList.add('open');
+}
+function closeModal(){ $('modal').classList.remove('open'); }
+$('modal').addEventListener('click',e=>{ if(e.target.id==='modal') closeModal(); });
+
+let toastT=null;
+function toast(msg){
+  const t=$('toast'); t.textContent=msg; t.style.display='block';
+  clearTimeout(toastT); toastT=setTimeout(()=>t.style.display='none', 2400);
+}
+
+$('bHelp').addEventListener('click',()=>{
+  openModal('Como desenhar a planta',
+   `<p><b>1.</b> Ferramenta <b>PAR</b>: clique em cada canto para levantar as paredes
+      (os ângulos travam em 0°/45°/90°; segure <kbd>Shift</kbd> para ângulo livre;
+      <kbd>Esc</kbd> encerra a sequência).</p>
+    <p><b>2.</b> <b>POR</b> e <b>JAN</b>: clique sobre uma parede — a porta abre para o
+      lado onde está o cursor. As larguras são definidas no painel Propriedades.</p>
+    <p><b>3.</b> <b>COT</b> marca medidas; <b>TXT</b> nomeia os ambientes;
+      <b>MOB</b> posiciona mobiliário em escala real (<kbd>R</kbd> gira).</p>
+    <p><b>4.</b> <b>SEL</b> move qualquer elemento (<kbd>Del</kbd> apaga,
+      <kbd>Ctrl+Z</kbd> desfaz). Roda do mouse = zoom; botão direito = mover a tela.</p>
+    <table>
+      <tr><td>Salvar no navegador</td><td>guarda projetos nomeados neste computador</td></tr>
+      <tr><td>Exportar / Importar JSON</td><td>leva a planta para outro computador</td></tr>
+      <tr><td>Exportar PNG</td><td>gera a prancha em estilo de impressão, com carimbo</td></tr>
+    </table>
+    <p style="text-align:right">criador: <b>Joaquim Pedro de Morais Filho</b> · j360074@hotmail.com</p>`,
+   [['Entendido', closeModal]]);
+});
+
+/* ============================================================
+   Inteligência de projeto
+   — Análise por IA (Puter.js, serviço público gratuito)
+   — Verificação técnica local (medidas mínimas usuais de norma)
+   ============================================================ */
+function planStats(){
+  const walls=model.walls, opens=model.opens;
+  let totalWall=0;
+  for (const w of walls) totalWall+=dist(w.x1,w.y1,w.x2,w.y2);
+  const pts=walls.flatMap(w=>[[w.x1,w.y1],[w.x2,w.y2]]);
+  let bbox=null;
+  if (pts.length){
+    let a=1e9,b=1e9,c=-1e9,d=-1e9;
+    for (const [x,y] of pts){a=Math.min(a,x);b=Math.min(b,y);c=Math.max(c,x);d=Math.max(d,y);}
+    bbox={w:c-a,h:d-b};
+  }
+  const doors=opens.filter(o=>o.type==='door');
+  const wins =opens.filter(o=>o.type==='win');
+  const winArea=wins.reduce((s,o)=>s+o.w*1.2,0);        /* altura típica 1,20 m */
+  const floor=bbox?bbox.w*bbox.h:0;
+  return {
+    nWalls:walls.length, totalWall, bbox, floor,
+    doors, wins, winArea,
+    rooms:model.texts.map(t=>t.s),
+    furn:model.furn.map(f=>FURN[f.type]?FURN[f.type][0]:f.type),
+    dims:model.dims.length
+  };
+}
+function planBrief(){
+  const s=planStats();
+  const linhas=[];
+  if (s.bbox) linhas.push(`Dimensões externas aproximadas: ${fmt(s.bbox.w)} × ${fmt(s.bbox.h)} m (área envolvente ${fmt(s.floor)} m²).`);
+  linhas.push(`Paredes: ${s.nWalls} segmentos, ${fmt(s.totalWall)} m lineares.`);
+  linhas.push(`Portas: ${s.doors.length} (larguras: ${s.doors.map(d=>fmt(d.w)+' m').join(', ')||'—'}).`);
+  linhas.push(`Janelas: ${s.wins.length} (larguras: ${s.wins.map(w=>fmt(w.w)+' m').join(', ')||'—'}).`);
+  linhas.push(`Ambientes nomeados: ${s.rooms.join(', ')||'nenhum'}.`);
+  linhas.push(`Mobiliário posicionado: ${s.furn.join(', ')||'nenhum'}.`);
+  return linhas.join('\n');
+}
+
+/* ---------- verificação técnica local ---------- */
+$('bTec').addEventListener('click',()=>{
+  const s=planStats();
+  if (!s.nWalls){ toast('Desenhe a planta primeiro'); return; }
+  const out=[];
+  const ok=(t)=>out.push(`<span class="ok">✔</span> ${t}`);
+  const warn=(t)=>out.push(`<span class="warn">✖</span> ${t}`);
+  /* portas — vão livre mínimo usual 0,80 m (acessibilidade NBR 9050) */
+  const narrow=s.doors.filter(d=>d.w<0.8);
+  if (!s.doors.length) warn('Nenhuma porta inserida.');
+  else if (narrow.length) warn(`${narrow.length} porta(s) com menos de 0,80 m de vão — abaixo do mínimo de acessibilidade (NBR 9050).`);
+  else ok('Todas as portas têm vão ≥ 0,80 m (acessibilidade).');
+  /* iluminação/ventilação — área de janelas ≥ 1/6 da área de piso (regra usual de código de obras) */
+  if (s.floor>0){
+    const razao=s.winArea/s.floor;
+    if (!s.wins.length) warn('Nenhuma janela inserida — ambientes de permanência exigem iluminação natural.');
+    else if (razao<1/6) warn(`Área estimada de janelas (${fmt(s.winArea)} m²) abaixo de 1/6 da área de piso (${fmt(s.floor/6)} m²) — reveja iluminação/ventilação.`);
+    else ok(`Área de janelas ≈ ${fmt(s.winArea)} m² atende a proporção mínima de 1/6 do piso.`);
+  }
+  /* pé de parede mínimo entre aberturas */
+  if (s.bbox && (s.bbox.w<2.4 || s.bbox.h<2.4))
+    warn('Dimensão externa menor que 2,40 m — verifique larguras mínimas de ambientes.');
+  else if (s.bbox) ok('Dimensões gerais compatíveis com larguras mínimas usuais.');
+  /* identificação */
+  if (!s.rooms.length) warn('Nomeie os ambientes com a ferramenta TXT para a prancha final.');
+  else ok(`${s.rooms.length} ambiente(s) identificado(s).`);
+  if (!s.dims) warn('Insira cotas (ferramenta COT) antes de exportar a prancha.');
+  else ok('Planta cotada.');
+  openModal('Verificação técnica',
+    `<div class="ia-out"><h4>Resumo do projeto</h4>${planBrief().replace(/\n/g,'<br>')}
+     <h4>Conferências</h4>${out.join('<br>')}</div>
+     <p>Conferência automática de medidas usuais de norma — não substitui a análise
+     do responsável técnico.</p>`,
+    [['Fechar', closeModal]]);
+});
+
+/* ---------- análise por IA (Puter.js, carregado sob demanda) ---------- */
+let puterLoad=null;
+function loadPuter(){
+  if (typeof puter!=='undefined') return Promise.resolve(true);
+  if (!/^https?:$/.test(location.protocol)) return Promise.resolve(false);
+  if (!puterLoad) puterLoad=new Promise(res=>{
+    const s=document.createElement('script');
+    s.src='https://js.puter.com/v2/';
+    s.onload=()=>res(typeof puter!=='undefined');
+    s.onerror=()=>{ puterLoad=null; res(false); };
+    document.head.appendChild(s);
+  });
+  return puterLoad;
+}
+let aiBusy=false;
+$('bAI').addEventListener('click', async ()=>{
+  if (aiBusy) return;
+  if (!model.walls.length){ toast('Desenhe a planta primeiro'); return; }
+  aiBusy=true; $('bAI').classList.add('busy');
+  const havePuter=await loadPuter();
+  aiBusy=false; $('bAI').classList.remove('busy');
+  if (!havePuter || typeof puter==='undefined' || !puter.ai){
+    openModal('Análise por IA',
+      `<p>O serviço de IA não está disponível nesta janela. Abra o editor no
+       site oficial para usar a análise inteligente:</p>
+       <p><b>elevbit-ai.github.io/plantacad</b></p>`,
+      [['Fechar', closeModal]]);
+    return;
+  }
+  aiBusy=true; $('bAI').classList.add('busy');
+  const prompt =
+`Você é um arquiteto sênior revisando a planta baixa de um colega. Dados extraídos do desenho:
+
+${planBrief()}
+
+Escreva em português do Brasil, em tom profissional e direto, uma análise curta com:
+1. PONTOS FORTES da distribuição atual;
+2. CIRCULAÇÃO E FLUXOS (o que revisar);
+3. CONFORTO (iluminação, ventilação, orientação);
+4. TRÊS MELHORIAS objetivas e práticas.
+Use títulos em maiúsculas, sem markdown, no máximo 250 palavras.`;
+  try{
+    const r=await puter.ai.chat(prompt);
+    const texto=(typeof r==='string')?r:(r?.message?.content ?? r?.text ?? String(r));
+    openModal('Análise do projeto · IA',
+      `<div class="ia-out">${String(texto).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/\n/g,'<br>')}</div>
+       <p>Parecer gerado automaticamente a partir das medidas do desenho —
+       revisão final sempre do responsável técnico.</p>`,
+      [['Fechar', closeModal]]);
+  }catch(err){
+    openModal('Análise por IA',
+      `<p>Não foi possível concluir a análise agora
+       (${err && err.message ? String(err.message).slice(0,120) : 'serviço indisponível'}).</p>
+       <p>No primeiro uso o serviço pede um login gratuito — autorize a janela e tente
+       novamente. A <b>Verificação técnica</b> local continua disponível.</p>`,
+      [['Fechar', closeModal]]);
+  }
+  aiBusy=false; $('bAI').classList.remove('busy');
+});
+
+/* ---------- planta de demonstração ---------- */
+function demo(){
+  const t=.15;
+  const W=(x1,y1,x2,y2)=>model.walls.push({x1,y1,x2,y2,t});
+  W(0,0,8,0); W(8,0,8,6); W(8,6,0,6); W(0,6,0,0);      /* perímetro 8×6 */
+  W(3.5,0,3.5,3); W(3.5,3,0,3);                        /* quarto */
+  W(5.5,6,5.5,3.4);                                    /* banheiro/cozinha */
+  model.opens.push(
+    {type:'door',x:4.6,y:0,a:0,w:.9,t,side:1},          /* entrada */
+    {type:'door',x:3.5,y:2.2,a:Math.PI/2,w:.8,t,side:-1},
+    {type:'door',x:5.5,y:4.4,a:Math.PI/2,w:.7,t,side:1},
+    {type:'win',x:1.6,y:0,a:0,w:1.2,t,side:1},
+    {type:'win',x:8,y:1.8,a:Math.PI/2,w:1.5,t,side:1},
+    {type:'win',x:2.6,y:6,a:0,w:1.2,t,side:1});
+  model.texts.push(
+    {x:1.7,y:1.4,s:'Quarto'},
+    {x:5.9,y:1.5,s:'Sala'},
+    {x:2.6,y:4.6,s:'Cozinha'},
+    {x:6.8,y:4.7,s:'Banheiro'});
+  model.dims.push({x1:0,y1:6.8,x2:8,y2:6.8},{x1:8.8,y1:0,x2:8.8,y2:6});
+  model.furn.push(
+    {type:'cama',x:1.7,y:1.9,a:0},
+    {type:'sofa',x:6.2,y:.9,a:0},
+    {type:'mesa',x:6.4,y:2.6,a:0},
+    {type:'pia',x:1,y:5.55,a:0},
+    {type:'fogao',x:2.2,y:5.5,a:0},
+    {type:'gelad',x:3.1,y:5.45,a:0},
+    {type:'vaso',x:6.2,y:5.5,a:0},
+    {type:'lavatorio',x:7.4,y:5.5,a:0},
+    {type:'chuveiro',x:7.3,y:3.95,a:0});
+}
+
+/* ---------- início ---------- */
+demo();
+refreshList();
+setTool('wall');
+resize();
+$('shint').textContent=HINTS.wall;
+
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+
+/* parâmetros de apresentação (?tool=, ?shot=) */
+(function(){
+  const q=new URLSearchParams(location.search);
+  const t=q.get('tool'); if (t && HINTS[t]) setTool(t);
+  const sh=q.get('shot');
+  if (sh==='print') setTimeout(()=>$('bPng').click(), 900);
+  if (sh==='tec')   setTimeout(()=>$('bTec').click(), 900);
+  if (sh==='help')  setTimeout(()=>$('bHelp').click(), 900);
+})();
+</script>
+</body>
+</html>

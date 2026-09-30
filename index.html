@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>PlantaCAD — Sistema de criação de plantas baixas</title>
+<meta name="description" content="PlantaCAD: sistema profissional de criação de plantas baixas direto no navegador — paredes em escala real, portas, janelas, cotas, mobiliário, análise inteligente de projeto e exportação de prancha. Por Joaquim Pedro de Morais Filho.">
+<meta name="author" content="Joaquim Pedro de Morais Filho — j360074@hotmail.com">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta property="og:title" content="PlantaCAD — plantas baixas profissionais no navegador">
+<meta property="og:description" content="Desenhe, analise e exporte plantas baixas em escala real. Gratuito, sem instalação.">
+<meta property="og:image" content="https://elevbit-ai.github.io/plantacad/assets/shot-editor.png">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230a0a07'/%3E%3Crect x='6' y='6' width='20' height='20' fill='none' stroke='%23ffd400' stroke-width='3'/%3E%3Cline x1='16' y1='6' x2='16' y2='18' stroke='%23ffd400' stroke-width='3'/%3E%3Cline x1='6' y1='18' x2='16' y2='18' stroke='%23ffd400' stroke-width='3'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#0a0a07; --panel:#11100a; --panel-2:#171509; --line:#2b2712;
+    --ink:#e8dfa8; --ink-dim:#8a7d45; --acc:#ffd400; --acc-soft:#b99c1e;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--ink);
+    font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+    font-size:14px;line-height:1.7}
+  a{color:var(--acc);text-decoration:none}
+  a:hover{text-decoration:underline}
+  img,video{max-width:100%;display:block}
+  .wrap{max-width:1060px;margin:0 auto;padding:0 22px}
+  h1,h2,h3{font-family:"Chakra Petch",sans-serif;text-wrap:balance}
+
+  /* nav */
+  nav{position:sticky;top:0;z-index:10;background:rgba(10,10,7,.94);
+    border-bottom:1px solid var(--line);backdrop-filter:blur(4px)}
+  nav .wrap{display:flex;align-items:center;gap:22px;height:54px}
+  .logo{font-family:"Chakra Petch",sans-serif;font-weight:700;font-size:18px;
+    letter-spacing:.06em;color:var(--acc)}
+  .logo span{color:var(--ink)}
+  nav .links{margin-left:auto;display:flex;gap:18px;font-size:11px;
+    text-transform:uppercase;letter-spacing:.14em}
+  nav .links a{color:var(--ink-dim)}
+  nav .links a:hover{color:var(--acc);text-decoration:none}
+  .cta{background:var(--acc);color:#111 !important;font-weight:600;
+    padding:7px 16px;letter-spacing:.1em}
+  .cta:hover{text-decoration:none;filter:brightness(1.1)}
+
+  /* hero */
+  header{padding:72px 0 40px;border-bottom:1px solid var(--line);
+    background:
+      repeating-linear-gradient(0deg, transparent 0 39px, #12110a 39px 40px),
+      repeating-linear-gradient(90deg, transparent 0 39px, #12110a 39px 40px),
+      var(--bg)}
+  .eyebrow{color:var(--ink-dim);font-size:11px;letter-spacing:.3em;
+    text-transform:uppercase;margin-bottom:14px}
+  h1{font-size:clamp(34px,6vw,58px);font-weight:700;letter-spacing:.02em;
+    line-height:1.08;color:var(--acc);max-width:16ch}
+  h1 em{font-style:normal;color:var(--ink)}
+  .sub{margin:20px 0 30px;max-width:58ch;color:var(--ink);font-size:15px}
+  .sub b{color:var(--acc);font-weight:500}
+  .heroBtns{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:48px}
+  .btn{display:inline-block;padding:12px 26px;font-size:12px;font-weight:600;
+    text-transform:uppercase;letter-spacing:.16em}
+  .btn.solid{background:var(--acc);color:#111}
+  .btn.solid:hover{text-decoration:none;filter:brightness(1.08)}
+  .btn.ghost{border:1px solid var(--line);color:var(--ink)}
+  .btn.ghost:hover{border-color:var(--acc);color:var(--acc);text-decoration:none}
+  .frame{border:1px solid var(--line);background:var(--panel)}
+  .frame .bar{display:flex;align-items:center;gap:8px;padding:8px 12px;
+    border-bottom:1px solid var(--line);font-size:10px;color:var(--ink-dim);
+    letter-spacing:.12em;text-transform:uppercase}
+  .dot{width:8px;height:8px;background:var(--line)}
+  .dot.y{background:var(--acc)}
+
+  /* specs strip */
+  .specs{border-bottom:1px solid var(--line);background:var(--panel)}
+  .specs .wrap{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+    gap:0}
+  .spec{padding:18px 16px;border-left:1px solid var(--line);font-size:11px;
+    letter-spacing:.08em;color:var(--ink-dim);text-transform:uppercase}
+  .spec b{display:block;color:var(--acc);font-size:15px;letter-spacing:.04em;
+    font-family:"Chakra Petch",sans-serif;margin-bottom:2px;text-transform:none}
+
+  section{padding:72px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:24px;color:var(--acc);letter-spacing:.04em;margin-bottom:8px}
+  .lead{color:var(--ink-dim);max-width:62ch;margin-bottom:36px}
+
+  /* features */
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1px;
+    background:var(--line);border:1px solid var(--line)}
+  .card{background:var(--panel);padding:24px 22px}
+  .card h3{font-size:14px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--ink);margin-bottom:10px}
+  .card h3::before{content:'▮ ';color:var(--acc)}
+  .card p{font-size:12.5px;color:var(--ink-dim)}
+  .card p b{color:var(--ink);font-weight:500}
+
+  /* steps */
+  .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:22px}
+  .step{border-top:2px solid var(--acc);padding-top:14px}
+  .step .n{font-family:"Chakra Petch",sans-serif;font-weight:700;font-size:26px;
+    color:var(--acc)}
+  .step h3{font-size:13px;letter-spacing:.1em;text-transform:uppercase;margin:6px 0 8px}
+  .step p{font-size:12.5px;color:var(--ink-dim)}
+
+  /* ia */
+  .duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px}
+  .iaCard{border:1px solid var(--line);background:var(--panel);padding:26px}
+  .iaCard h3{color:var(--acc);font-size:15px;letter-spacing:.08em;margin-bottom:12px}
+  .iaCard p{font-size:12.5px;color:var(--ink-dim)}
+  .iaCard p b{color:var(--ink);font-weight:500}
+  .tag{display:inline-block;border:1px solid var(--acc-soft);color:var(--acc-soft);
+    font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;padding:2px 8px;
+    margin-bottom:14px}
+
+  /* video */
+  video{border:1px solid var(--line);background:#000;width:100%}
+
+  /* author */
+  .authorBox{display:flex;gap:26px;align-items:center;flex-wrap:wrap;
+    border:1px solid var(--line);background:var(--panel);padding:30px}
+  .sig{font-family:"Chakra Petch",sans-serif;font-weight:700;font-size:22px;
+    color:var(--acc);line-height:1.2}
+  .authorBox p{font-size:12.5px;color:var(--ink-dim);max-width:52ch}
+  .mono-chip{border:1px solid var(--line);padding:3px 10px;font-size:11px;
+    color:var(--ink);display:inline-block;margin-top:8px}
+
+  footer{padding:34px 0;color:var(--ink-dim);font-size:11px;letter-spacing:.06em}
+  footer .wrap{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
+  footer b{color:var(--ink);font-weight:500}
+
+  @media (prefers-reduced-motion: no-preference){
+    header .frame{animation:rise .7s ease-out both .15s}
+    @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1}}
+  }
+  :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <span class="logo">PLANTA<span>▮</span>CAD</span>
+    <div class="links">
+      <a href="#recursos">Recursos</a>
+      <a href="#video">Demonstração</a>
+      <a href="#ia">Inteligência</a>
+      <a href="#autor">Autor</a>
+      <a class="cta" href="app.html">Abrir o editor</a>
+    </div>
+  </div>
+</nav>
+
+<header>
+  <div class="wrap">
+    <p class="eyebrow">Sistema de criação de plantas baixas · v1.0</p>
+    <h1>Plantas baixas <em>profissionais</em>, direto no navegador.</h1>
+    <p class="sub">Paredes com espessura real, portas e janelas em simbologia técnica,
+      cotas em metros, mobiliário em escala e <b>análise inteligente do projeto</b>.
+      Sem instalação, sem cadastro — abra e desenhe.</p>
+    <div class="heroBtns">
+      <a class="btn solid" href="app.html">Abrir o editor</a>
+      <a class="btn ghost" href="#video">Ver a demonstração</a>
+    </div>
+    <div class="frame">
+      <div class="bar"><span class="dot y"></span><span class="dot"></span><span class="dot"></span>
+        plantacad — projeto-01 · escala 1:50</div>
+      <a href="app.html" aria-label="Abrir o editor">
+        <img src="assets/shot-editor.png" alt="Editor PlantaCAD com uma planta de 8×6 metros: quarto, sala, cozinha e banheiro, mobiliário em escala e painel de propriedades" loading="eager">
+      </a>
+    </div>
+  </div>
+</header>
+
+<div class="specs">
+  <div class="wrap">
+    <div class="spec"><b>100% navegador</b>nenhuma instalação</div>
+    <div class="spec"><b>Escala real</b>medidas em metros</div>
+    <div class="spec"><b>Prancha final</b>exportação com carimbo</div>
+    <div class="spec"><b>Gratuito</b>código aberto · MIT</div>
+  </div>
+</div>
+
+<section id="recursos">
+  <div class="wrap">
+    <h2>Recursos</h2>
+    <p class="lead">Tudo o que uma planta baixa de estudo preliminar exige,
+      com o traço técnico que o arquiteto reconhece.</p>
+    <div class="grid">
+      <div class="card"><h3>Paredes em escala</h3>
+        <p>Espessuras reais de <b>10 a 25 cm</b>, desenho em cadeia com trava
+        automática em 0°/45°/90° e comprimento em metros escrito sobre cada parede.</p></div>
+      <div class="card"><h3>Portas e janelas</h3>
+        <p>Simbologia técnica: porta com <b>arco de giro</b> para o lado escolhido,
+        janela em traço triplo. Larguras normativas de 60 a 200 cm.</p></div>
+      <div class="card"><h3>Cotas e medidas</h3>
+        <p>Cotas com traço a 45° e valor em metros, <b>snap configurável</b>
+        de 5 a 50 cm e grade métrica de referência.</p></div>
+      <div class="card"><h3>Mobiliário real</h3>
+        <p>Dez peças em escala — camas, sofá, mesa, cozinha e banheiro completos —
+        para validar o <b>layout</b> antes do anteprojeto.</p></div>
+      <div class="card"><h3>Inteligência de projeto</h3>
+        <p>Análise por IA da circulação, conforto e distribuição, mais
+        <b>verificação técnica local</b> de medidas mínimas usuais de norma.</p></div>
+      <div class="card"><h3>Salvamento completo</h3>
+        <p>Projetos nomeados no navegador, intercâmbio por <b>JSON</b> e exportação
+        da prancha em <b>PNG estilo impressão</b>, com carimbo de autoria.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="video">
+  <div class="wrap">
+    <h2>Demonstração em vídeo</h2>
+    <p class="lead">Cinco minutos, em português: da primeira parede à prancha exportada.</p>
+    <video controls preload="metadata" poster="assets/shot-editor.png">
+      <source src="media/demo.mp4" type="video/mp4">
+      Seu navegador não reproduz vídeo MP4 — baixe em media/demo.mp4.
+    </video>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Como funciona</h2>
+    <p class="lead">O fluxo de trabalho segue a ordem natural do desenho técnico.</p>
+    <div class="steps">
+      <div class="step"><span class="n">01</span><h3>Levante as paredes</h3>
+        <p>Ferramenta PAR: um clique por canto. Os ângulos travam no esquadro
+        e cada trecho mostra a medida.</p></div>
+      <div class="step"><span class="n">02</span><h3>Abra portas e janelas</h3>
+        <p>Clique sobre a parede. A porta abre para o lado onde está o cursor,
+        já com o vão descontado.</p></div>
+      <div class="step"><span class="n">03</span><h3>Cote e mobilie</h3>
+        <p>Cotas, nomes dos ambientes e mobiliário em escala real
+        para provar que o layout funciona.</p></div>
+      <div class="step"><span class="n">04</span><h3>Analise e exporte</h3>
+        <p>Rode a análise inteligente, confira as medidas mínimas
+        e exporte a prancha com carimbo.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="ia">
+  <div class="wrap">
+    <h2>Inteligência de projeto</h2>
+    <p class="lead">Dois níveis de análise, direto no editor.</p>
+    <div class="duo">
+      <div class="iaCard">
+        <span class="tag">on-line · serviço público gratuito</span>
+        <h3>Análise por IA</h3>
+        <p>O editor mede a sua planta — dimensões, paredes, vãos, ambientes,
+        mobiliário — e envia o resumo técnico para um modelo de linguagem, que devolve
+        um <b>parecer profissional</b>: pontos fortes, circulação e fluxos, conforto
+        ambiental e três melhorias objetivas. Usa o serviço público
+        <b>Puter.js</b> — nenhuma chave de API é necessária; no primeiro uso,
+        o serviço solicita um login gratuito.</p>
+      </div>
+      <div class="iaCard">
+        <span class="tag">off-line · instantânea</span>
+        <h3>Verificação técnica</h3>
+        <p>Conferência imediata, sem internet, das medidas mínimas usuais:
+        <b>vão de portas ≥ 0,80 m</b> (acessibilidade, NBR 9050), área de janelas
+        ≥ <b>1/6 da área de piso</b> (iluminação e ventilação), larguras mínimas
+        de ambientes, identificação e cotagem da prancha. Um relatório
+        ✔/✖ direto ao ponto.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="autor">
+  <div class="wrap">
+    <h2>Autor</h2>
+    <div class="authorBox">
+      <div>
+        <div class="sig">Joaquim Pedro<br>de Morais Filho</div>
+        <span class="mono-chip">j360074@hotmail.com</span>
+      </div>
+      <p>Idealizador e desenvolvedor do PlantaCAD. O projeto é distribuído
+        gratuitamente sob licença MIT — o código-fonte completo está publicado em
+        <a href="https://github.com/elevbit-ai/plantacad">github.com/elevbit-ai/plantacad</a>.
+        Sugestões e colaborações são bem-vindas pelo e-mail ao lado.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 <b>Joaquim Pedro de Morais Filho</b> · j360074@hotmail.com</span>
+    <span>PlantaCAD v1.0 · licença MIT · <a href="https://github.com/elevbit-ai/plantacad">código-fonte</a></span>
+  </div>
+</footer>
+
+</body>
+</html>
